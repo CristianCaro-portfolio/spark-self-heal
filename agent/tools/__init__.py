@@ -9,6 +9,7 @@ Each tool exposes:
 from agent.tools import (
     catalog,
     failure_record,
+    github_pr,
     glue_logs,
     glue_metadata,
     patch,
@@ -22,6 +23,7 @@ TOOLS = [
     catalog,
     pipeline_code,
     patch,
+    github_pr,
 ]
 
 DISPATCH = {tool.SCHEMA["name"]: tool.execute for tool in TOOLS}

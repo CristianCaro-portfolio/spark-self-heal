@@ -45,6 +45,13 @@ def main() -> int:
     print(f"{'=' * 60}")
     if result["result"]:
         print(json.dumps(result["result"], indent=2))
+
+        phase_3 = result["result"].get("phase_3", {}) or {}
+        if phase_3.get("pr_opened") and phase_3.get("pr_url"):
+            stars = "*" * 60
+            print(f"\n{stars}")
+            print(f"  PR OPENED: {phase_3['pr_url']}")
+            print(f"{stars}")
     else:
         print("[!] Could not extract structured JSON. Raw text:")
         print(result["raw_text"])
@@ -65,9 +72,11 @@ def main() -> int:
 
     p1 = res.get("phase_1", {})
     p2 = res.get("phase_2", {})
+    p3 = res.get("phase_3", {})
     diagnosed = p1.get("fm_id", "none") != "none"
     patched = bool(p2.get("patch_proposed"))
-    return 0 if (diagnosed and patched) else 1
+    pr_opened = bool(p3.get("pr_opened"))
+    return 0 if (diagnosed and patched and pr_opened) else 1
 
 
 if __name__ == "__main__":
