@@ -6,10 +6,17 @@ Each tool exposes:
   - execute(**kwargs): the implementation, returning a JSON-serializable dict
 """
 
-from agent.tools import catalog, failure_record, glue_logs, pipeline_code
+from agent.tools import (
+    catalog,
+    failure_record,
+    glue_logs,
+    glue_metadata,
+    pipeline_code,
+)
 
 TOOLS = [
     failure_record,
+    glue_metadata,
     glue_logs,
     catalog,
     pipeline_code,

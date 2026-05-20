@@ -18,16 +18,19 @@ from botocore.exceptions import ClientError
 LOG_GROUP_OUTPUT = "/aws-glue/jobs/output"
 LOG_GROUP_ERROR = "/aws-glue/jobs/error"
 
-DEFAULT_MAX_EVENTS = 100
+DEFAULT_MAX_EVENTS = 30
+HARD_CAP_MAX_EVENTS = 100
+MAX_MESSAGE_CHARS = 800
 
 
 SCHEMA = {
     "name": "get_glue_logs",
     "description": (
         "Retrieves CloudWatch log events for a specific Glue Job run. "
-        "Use this to inspect the stack trace and runtime output of a failed run. "
-        "Prefer log_group='error' to find the root exception; use 'output' to "
-        "see the user script's print statements and structured RuntimeErrors."
+        "Use this when get_glue_job_run_metadata's ErrorMessage is not enough "
+        "and you need the surrounding stack trace or print output. "
+        "By default returns the END of the stream (where the failure traceback lives). "
+        "Each message is truncated to ~800 chars to keep the context window small."
     ),
     "input_schema": {
         "type": "object",
@@ -46,7 +49,17 @@ SCHEMA = {
             },
             "max_events": {
                 "type": "integer",
-                "description": f"Max log events to return. Default {DEFAULT_MAX_EVENTS}.",
+                "description": (
+                    f"Max log events to return. Default {DEFAULT_MAX_EVENTS}, "
+                    f"hard-capped at {HARD_CAP_MAX_EVENTS} to protect the context window."
+                ),
+            },
+            "from_head": {
+                "type": "boolean",
+                "description": (
+                    "If true, reads from the start of the stream (job bootstrap). "
+                    "If false (default), reads from the end (where failures appear)."
+                ),
             },
         },
         "required": ["job_run_id", "log_group"],
@@ -54,9 +67,15 @@ SCHEMA = {
 }
 
 
-def execute(job_run_id: str, log_group: str, max_events: int = DEFAULT_MAX_EVENTS) -> dict:
-    """Fetch up to `max_events` CloudWatch log events for the given JobRunId."""
+def execute(
+    job_run_id: str,
+    log_group: str,
+    max_events: int = DEFAULT_MAX_EVENTS,
+    from_head: bool = False,
+) -> dict:
+    """Fetch CloudWatch log events for the given JobRunId, truncated for token safety."""
     log_group_name = LOG_GROUP_ERROR if log_group == "error" else LOG_GROUP_OUTPUT
+    capped_limit = min(int(max_events), HARD_CAP_MAX_EVENTS)
 
     client = boto3.client("logs", region_name="us-east-1")
 
@@ -64,8 +83,8 @@ def execute(job_run_id: str, log_group: str, max_events: int = DEFAULT_MAX_EVENT
         response = client.get_log_events(
             logGroupName=log_group_name,
             logStreamName=job_run_id,
-            limit=max_events,
-            startFromHead=True,
+            limit=capped_limit,
+            startFromHead=from_head,
         )
     except ClientError as e:
         return {
@@ -84,9 +103,14 @@ def execute(job_run_id: str, log_group: str, max_events: int = DEFAULT_MAX_EVENT
     return {
         "job_run_id": job_run_id,
         "log_group": log_group_name,
+        "from_head": from_head,
         "event_count": len(events),
+        "max_message_chars": MAX_MESSAGE_CHARS,
         "events": [
-            {"timestamp": e["timestamp"], "message": e["message"].rstrip()}
+            {
+                "timestamp": e["timestamp"],
+                "message": e["message"].rstrip()[:MAX_MESSAGE_CHARS],
+            }
             for e in events
         ],
     }
