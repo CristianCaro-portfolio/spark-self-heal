@@ -46,3 +46,8 @@ data/_tmp/
 # (fully reproducible: anyone can regenerate them with the fixed seed)
 data/sample/*.json
 data/broken/*.json
+
+# Airflow
+airflow/logs/
+airflow/plugins/
+airflow/config/airflow.cfg
