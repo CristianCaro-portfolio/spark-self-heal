@@ -1,80 +1,80 @@
-# ADR-001: AWS real en lugar de LocalStack
+# ADR-001: Real AWS account instead of LocalStack
 
 ## Status
 Accepted — 2026-05-20
 
 ## Context
-El proyecto necesita un entorno AWS funcional (S3, Glue Catalog, Glue Jobs,
-Athena, CloudWatch). Se evaluaron tres opciones de plano de pruebas:
+The project requires a working AWS environment (S3, Glue Catalog, Glue Jobs,
+Athena, CloudWatch). Three options for the test plane were evaluated:
 
-1. **LocalStack** (emulador de AWS local en Docker)
-2. **AWS real** con cuenta personal
-3. **Stack OSS local** (MinIO + Hive Metastore + DuckDB) que simula la
-   arquitectura sin emular APIs AWS
+1. **LocalStack** (local AWS API emulator in Docker)
+2. **Real AWS** with a personal account
+3. **Local OSS stack** (MinIO + Hive Metastore + DuckDB) — simulates the
+   architecture without emulating AWS APIs
 
-Investigación verificada (mayo 2026):
-- LocalStack archivó la Community Edition el 23 de marzo de 2026
-- Glue y Athena están listados como "Pro image only" en la doc oficial
-  de cobertura (docs.localstack.cloud/references/coverage/coverage_glue)
-- El plan Hobby gratuito (post-marzo 2026) NO incluye Glue ni Athena
-- LocalStack Ultimate cuesta $89/mes o requiere aplicar a la licencia
-  OSS gratuita (review manual de días a semanas)
+Verified research (May 2026):
+- LocalStack archived its Community Edition on March 23, 2026.
+- Glue and Athena are listed as "Pro image only" in the official coverage
+  documentation (docs.localstack.cloud/references/coverage/coverage_glue).
+- The free Hobby plan (post March 2026) does NOT include Glue or Athena.
+- LocalStack Ultimate costs $89/month or requires applying for the OSS
+  license (manual review of days to weeks).
 
 ## Decision
-Se elige **AWS real con cuenta personal** y techo de gasto controlado
-($10/mes vía AWS Budget).
+Use a **real AWS account** with a controlled spending ceiling
+($10/month via AWS Budgets).
 
 ## Rationale
-1. **Servicios disponibles sin restricciones** — Glue y Athena son
-   centrales al proyecto y al perfil del rol target (Data Engineer Sr
-   con AWS). No tiene sentido emularlos.
-2. **Costo bajo y predecible** — Glue Jobs serverless ($0.44/DPU-hr,
-   mín. 2 DPU × 1 min ≈ $0.015 por ejecución corta) más S3 (centavos)
-   más Catalog (free tier de 1M objetos siempre vigente) suman $3-5/mes
-   en desarrollo activo.
-3. **Skill demostrable en el portfolio** — Terraform apuntando a AWS
-   real es más creíble para un reclutador que el mismo HCL apuntando a
-   un emulador.
-4. **Servicios descartados por costo** — MWAA (~$355/mes mínimo) se
-   reemplaza por Airflow autohospedado en docker-compose; EMR cluster
-   se reemplaza por Glue Jobs serverless.
+1. **Services available without restrictions** — Glue and Athena are
+   central to the project and to the target role profile (Senior Data
+   Engineer with AWS). Emulating them adds no value.
+2. **Low and predictable cost** — Glue Jobs serverless ($0.44/DPU-hr,
+   minimum 2 DPU × 1 min ≈ $0.015 per short run) plus S3 (cents) plus
+   Catalog (1M-object Always Free tier) add up to $3-5/month during
+   active development.
+3. **Demonstrable skill in the portfolio** — Terraform pointing at real
+   AWS is more credible to a recruiter than the same HCL pointing at an
+   emulator.
+4. **Services discarded for cost** — MWAA (~$355/month minimum) is
+   replaced by self-hosted Airflow in docker-compose; EMR clusters are
+   replaced by serverless Glue Jobs.
 
 ## Consequences
 
-### Positivas
-- Cero ambigüedad sobre la fidelidad de APIs AWS
-- Portfolio refleja experiencia real con AWS, no con emulador
-- Terraform 100% portable a cualquier cuenta AWS
+### Positive
+- Zero ambiguity about AWS API fidelity.
+- The portfolio reflects real AWS experience, not emulator experience.
+- Terraform is 100% portable to any AWS account.
 
-### Negativas
-- Requiere disciplina de teardown al terminar sesiones largas
-- Una access key leaked en GitHub puede generar costos graves
-- Sin alertas/budget configurados, una negligencia puede salir cara
+### Negative
+- Requires teardown discipline at the end of long sessions.
+- A leaked access key on GitHub can produce serious costs.
+- Without budgets/alerts configured, an honest mistake can get expensive.
 
-### Mitigaciones
-- AWS Budget de $10/mes con alertas en 80% actual, 100% actual y
-  100% forecasted
-- IAM user separado (`cristian-dev`) con least privilege relativo
-  (no AdministratorAccess) y MFA obligatorio
-- Access keys nunca commiteadas; `.gitignore` blindea `*.tfvars`,
-  `*.tfstate`, archivos `.env`, CSVs de credenciales
-- `terraform destroy` al cierre de cada sesión de desarrollo larga
-- Tag obligatorio `Project=spark-self-heal` en todos los recursos
-  vía `default_tags` del provider de Terraform
+### Mitigations
+- AWS Budget of $10/month with alerts at 80% actual, 100% actual, and
+  100% forecasted.
+- Separate IAM user (`cristian-dev`) with relative least privilege (no
+  AdministratorAccess) and mandatory MFA.
+- Access keys never committed; `.gitignore` blocks `*.tfvars`,
+  `*.tfstate`, `.env*`, and credentials CSVs.
+- `terraform destroy` at the end of each long development session.
+- Mandatory tag `Project=spark-self-heal` on every resource via the
+  provider's `default_tags`.
 
 ## Alternatives considered
 
 ### LocalStack Ultimate (paid)
-- $89/mes — desproporcionado para portfolio
-- Descartado por costo
+- $89/month — disproportionate for a portfolio project.
+- Rejected on cost.
 
-### LocalStack OSS license (free para proyectos OSS calificados)
-- Requiere review manual con tiempos inciertos
-- Hace al proyecto dependiente de la aprobación de un vendor
-- Descartado por dependencia externa
+### LocalStack OSS license (free for qualifying OSS projects)
+- Requires manual review with uncertain timing.
+- Makes the project dependent on vendor approval.
+- Rejected on external dependency.
 
-### Stack OSS local (MinIO + Hive Metastore + DuckDB)
-- Cero costo indefinido
-- Concepto del proyecto se preserva pero el README quedaría como
-  "Glue-equivalent, Athena-equivalent" en vez de "AWS Glue, AWS Athena"
-- Descartado por pérdida de alineación con el JD target
+### Local OSS stack (MinIO + Hive Metastore + DuckDB)
+- Zero indefinite cost.
+- The concept is preserved but the README would read as
+  "Glue-equivalent, Athena-equivalent" instead of "AWS Glue, AWS Athena".
+- Rejected on loss of alignment with the target JD.

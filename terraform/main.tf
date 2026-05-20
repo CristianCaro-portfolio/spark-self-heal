@@ -2,12 +2,12 @@
 # S3 BUCKETS
 # ---------------------------------------------------------------------------
 
-# Raw zone: JSON crudo de transacciones cae acá
+# Raw zone: landing area for incoming JSON transaction events
 resource "aws_s3_bucket" "raw" {
   bucket = "${var.project_name}-raw-${var.bucket_suffix}"
 }
 
-# Bloqueo de acceso público — buena práctica obligatoria
+# Public access block — mandatory baseline for any bucket holding data
 resource "aws_s3_bucket_public_access_block" "raw" {
   bucket = aws_s3_bucket.raw.id
 
@@ -17,7 +17,7 @@ resource "aws_s3_bucket_public_access_block" "raw" {
   restrict_public_buckets = true
 }
 
-# Silver zone: Parquet limpios después del Glue Job
+# Silver zone: cleaned Parquet output from the Glue Job
 resource "aws_s3_bucket" "silver" {
   bucket = "${var.project_name}-silver-${var.bucket_suffix}"
 }

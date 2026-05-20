@@ -1,49 +1,49 @@
-# ADR-003: Cost guardrails y disciplina operacional
+# ADR-003: Cost guardrails and operational discipline
 
 ## Status
 Accepted — 2026-05-20
 
 ## Context
-El proyecto corre contra AWS real. Sin salvaguardas, errores honestos
-(dejar un cluster idle, un crawler corriendo en loop, leakear access keys)
-pueden producir facturas inesperadas de cientos o miles de dólares.
+The project runs against real AWS. Without safeguards, honest mistakes
+(leaving an idle cluster, a crawler running in a loop, leaking access
+keys) can produce unexpected bills of hundreds or thousands of dollars.
 
 ## Decision
-Establecer 6 salvaguardas no-negociables como condición de operación.
+Establish 6 non-negotiable safeguards as a precondition for operation.
 
-| # | Salvaguarda | Implementación |
+| # | Safeguard | Implementation |
 |---|---|---|
-| 1 | Budget de $10/mes con 3 alertas | AWS Budgets: 80% actual, 100% actual, 100% forecasted |
-| 2 | Tag obligatorio en todo recurso | `default_tags { Project = "spark-self-heal", Environment = "dev", Owner = "cristian" }` en provider Terraform |
-| 3 | `terraform destroy` ritualizado | Comando documentado en README al cierre de cada sesión grande |
-| 4 | Cero recursos always-on caros | Prohibidos: clusters EMR, EC2 idle, Sagemaker notebooks abiertos. Permitidos always-on: S3 (centavos), Glue Catalog (free tier) |
-| 5 | MFA + IAM user separado | Root user con MFA, trabajo diario en `cristian-dev` con least privilege relativo |
-| 6 | Región única `us-east-1` | Variable Terraform fija; evita recursos huérfanos en otras regiones |
+| 1 | $10/month budget with 3 alerts | AWS Budgets: 80% actual, 100% actual, 100% forecasted |
+| 2 | Mandatory tag on every resource | `default_tags { Project = "spark-self-heal", Environment = "dev", Owner = "cristian" }` in the Terraform provider |
+| 3 | Ritualized `terraform destroy` | Command documented in README for end-of-session teardown |
+| 4 | No expensive always-on resources | Forbidden: EMR clusters, idle EC2, open SageMaker notebooks. Allowed always-on: S3 (cents), Glue Catalog (free tier) |
+| 5 | MFA + separate IAM user | Root user with MFA; daily work under `cristian-dev` with relative least privilege |
+| 6 | Single region `us-east-1` | Fixed Terraform variable; prevents orphan resources in other regions |
 
 ## Rationale
-- Una factura inesperada puede matar el proyecto en una iteración
-- La disciplina explícita > confianza en la prudencia personal
-- Las salvaguardas se documentan para que cualquiera que clone el repo
-  entienda las reglas antes de correr `terraform apply`
+- A surprise bill can kill the project in one iteration.
+- Explicit discipline beats personal prudence.
+- Safeguards are documented so that anyone cloning the repo understands
+  the rules before running `terraform apply`.
 
-## Trade-offs aceptados
-Para mantener simplicidad de portfolio, este proyecto NO implementa:
-- IAM policies custom por servicio (usa `*FullAccess` AWS-managed)
-- Multi-cuenta con AWS Organizations (single account)
-- Network isolation con VPC custom (default VPC)
-- KMS keys custom (defaults de AWS)
-- Auto-shutdown de recursos via Budget Actions
+## Trade-offs accepted
+To keep the portfolio simple, this project does NOT implement:
+- Custom per-service IAM policies (uses AWS-managed `*FullAccess`).
+- Multi-account setups with AWS Organizations (single account).
+- Network isolation with a custom VPC (default VPC).
+- Custom KMS keys (AWS defaults).
+- Auto-shutdown via Budget Actions.
 
-Estas prácticas son apropiadas para producción real pero no agregan
-valor pedagógico al proyecto portfolio.
+These practices are appropriate for real production environments but
+add no pedagogical value to a portfolio project.
 
 ## Consequences
 
-### Positivas
-- Riesgo financiero acotado a $10/mes en peor caso típico
-- Disciplina industrial demostrable en el código y docs
+### Positive
+- Financial risk bounded to ~$10/month in the typical worst case.
+- Industrial discipline demonstrable in the code and docs.
 
-### Negativas
-- Algunas restricciones (tag obligatorio, single region) son fricción
-  durante el desarrollo
-- Las policies `*FullAccess` no son ejemplo de least privilege estricto
+### Negative
+- Some constraints (mandatory tag, single region) create friction
+  during development.
+- `*FullAccess` policies are not an example of strict least privilege.

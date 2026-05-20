@@ -7,7 +7,8 @@ and writes cleaned Parquet to s3://<silver-bucket>/transactions/,
 partitioned by country_code and ingestion date.
 
 The job is INTENTIONALLY brittle on several axes — those failure
-modes are what the self-healing agent (Acto 4) learns to diagnose.
+modes are what the self-healing agent (see Phase 4) learns to diagnose.
+The full catalog lives in docs/failure-modes.md.
 
 Expected Glue Job arguments:
     --JOB_NAME              <auto-injected by Glue>

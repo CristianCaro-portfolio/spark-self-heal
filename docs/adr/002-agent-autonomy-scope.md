@@ -1,42 +1,45 @@
-# ADR-002: Espectro de autonomía del agente
+# ADR-002: Agent autonomy spectrum
 
 ## Status
 Accepted — 2026-05-20
 
 ## Context
-Cuando un job de Glue falla, el agente puede tomar acciones con distintos
-niveles de autonomía. Definir esto explícitamente es decisión arquitectónica,
-no detalle de implementación: determina el blast radius del agente, los
-permisos IAM que necesita, el diseño del loop, y la narrativa del proyecto.
+When a Glue Job fails, the agent can take actions at different levels of
+autonomy. Defining this explicitly is an architectural decision, not an
+implementation detail: it determines the agent's blast radius, the IAM
+permissions it needs, the design of its control loop, and the project's
+narrative.
 
 ## Decision
-Implementar 3 modos de operación controlados por la variable de entorno
-`AGENT_MODE`:
+Implement 3 operating modes, controlled by the `AGENT_MODE` environment
+variable:
 
-| Modo      | Lee logs | Diagnostica | Propone parche | Abre PR | Auto-merge |
-|-----------|----------|-------------|----------------|---------|------------|
-| observe   | sí       | sí          | no             | no      | no         |
-| propose   | sí       | sí          | sí             | sí      | no         |
-| apply     | sí       | sí          | sí             | sí      | sí (si CI pasa) |
+| Mode      | Reads logs | Diagnoses | Proposes patch | Opens PR | Auto-merge |
+|-----------|------------|-----------|----------------|----------|------------|
+| observe   | yes        | yes       | no             | no       | no         |
+| propose   | yes        | yes       | yes            | yes      | no         |
+| apply     | yes        | yes       | yes            | yes      | yes (if CI passes) |
 
-- Default en desarrollo: `propose`
-- Default en CI: `observe`
-- `apply` requiere además flag `--allow-auto-merge` en línea de comando
+- Development default: `propose`.
+- CI default: `observe`.
+- `apply` additionally requires the `--allow-auto-merge` flag on the
+  command line.
 
 ## Rationale
-1. Human-in-the-loop por defecto refleja la práctica industrial real
-2. Los 3 modos demuestran progresión de confianza arquitectónica
-3. `propose` produce PRs como artefactos públicos visibles en GitHub
-4. `apply` existe pero detrás de flag, demostrando madurez (no es
-   "el agente hace todo y rezamos")
+1. Human-in-the-loop by default reflects real industry practice.
+2. The three modes demonstrate a progression of architectural trust.
+3. `propose` produces PRs as public artifacts visible on GitHub.
+4. `apply` exists but behind a flag, showing maturity (not "the agent
+   does everything and we pray").
 
 ## Consequences
 
-### Positivas
-- Safety por construcción
-- Cada PR del agente queda en el historial de GitHub como prueba
-- Permite evaluar prompts viendo qué PRs son aceptados vs rechazados
+### Positive
+- Safety by construction.
+- Each PR opened by the agent stays in GitHub history as evidence.
+- Allows prompt evaluation by observing which PRs are accepted vs.
+  rejected.
 
-### Negativas
-- Menos "wow factor" automático que un agente 100% autónomo
-- Requiere integración con GitHub API (token scoped a un repo)
+### Negative
+- Less "wow factor" than a fully autonomous agent.
+- Requires GitHub API integration (token scoped to a single repo).
