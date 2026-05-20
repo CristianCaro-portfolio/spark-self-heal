@@ -79,6 +79,10 @@ TRANSACTION_SCHEMA = StructType([
 ])
 
 VALID_CURRENCIES = ["USD", "COP", "MXN", "BRL", "ARS", "EUR"]
+EXPECTED_COLUMNS = {f.name for f in TRANSACTION_SCHEMA.fields}
+REQUIRED_NON_NULL_COLUMNS = [
+    f.name for f in TRANSACTION_SCHEMA.fields if not f.nullable
+]
 
 # ---------------------------------------------------------------------------
 # 3) Read raw JSONL with explicit schema
@@ -86,10 +90,28 @@ VALID_CURRENCIES = ["USD", "COP", "MXN", "BRL", "ARS", "EUR"]
 
 raw_path = f"s3://{args['raw_bucket']}/{args['source_prefix']}"
 
+# 3.a) Schema-drift probe: read once WITHOUT schema to inspect the actual
+# JSON shape. Spark would silently drop unexpected fields under an explicit
+# schema, so we compare ourselves and fail loudly. This converts FM-01
+# (schema drift) from a silent data-loss failure into a hard, diagnosable one.
+probe_df = spark.read.json(raw_path)
+actual_columns = set(probe_df.columns)
+unexpected = actual_columns - EXPECTED_COLUMNS
+missing = EXPECTED_COLUMNS - actual_columns
+
+if unexpected or missing:
+    raise RuntimeError(
+        "Schema drift detected at "
+        f"{raw_path} :: unexpected={sorted(unexpected)}, "
+        f"missing={sorted(missing)} (expected={sorted(EXPECTED_COLUMNS)})"
+    )
+
+# 3.b) Real read with explicit schema and FAILFAST. Catches type-level
+# corruption in well-shaped records.
 raw_df: DataFrame = (
     spark.read
     .schema(TRANSACTION_SCHEMA)
-    .option("mode", "FAILFAST")        # fails on records that don't match schema
+    .option("mode", "FAILFAST")
     .json(raw_path)
 )
 
@@ -98,6 +120,24 @@ print(f"[ETL] read {raw_count} raw records")
 
 if raw_count == 0:
     raise RuntimeError(f"No records found at {raw_path} — empty partition?")
+
+# 3.c) Enforce non-null constraints declared in the schema. Spark treats
+# StructField.nullable as informational metadata, not as a runtime check,
+# so we assert it ourselves. This makes FM-06 a hard failure.
+null_counts = (
+    raw_df.select([
+        F.sum(F.col(c).isNull().cast("int")).alias(c)
+        for c in REQUIRED_NON_NULL_COLUMNS
+    ])
+    .collect()[0]
+    .asDict()
+)
+null_violations = {c: n for c, n in null_counts.items() if n and n > 0}
+if null_violations:
+    raise RuntimeError(
+        "Non-null constraint violated on required columns: "
+        f"{null_violations} (total={sum(null_violations.values())})"
+    )
 
 # ---------------------------------------------------------------------------
 # 4) Transformations + validations
