@@ -1,0 +1,8 @@
+{
+  "fm_id": "FM-01",
+  "summary": "Add fraud_score field to TRANSACTION_SCHEMA to handle schema drift",
+  "rationale": "The upstream system began emitting a new field 'fraud_score' that was not declared in TRANSACTION_SCHEMA. The schema-drift probe detected this and raised a RuntimeError. This patch adds fraud_score as a nullable DoubleType field to the schema, which is the forward-compatible approach recommended in FM-01. The field is marked nullable=True because it may not be present in all historical records, and adding it allows the pipeline to process both old and new data formats without data loss.",
+  "created_at": "2026-05-20T16:01:37.860522+00:00",
+  "patched_file": "agent/patches/FM-01__20260520T160137Z.py",
+  "line_count": 230
+}
