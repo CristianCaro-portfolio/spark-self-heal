@@ -51,3 +51,7 @@ data/broken/*.json
 airflow/logs/
 airflow/plugins/
 airflow/config/airflow.cfg
+
+# Portfolio assets (post screenshots, render scripts) -- local only
+assets/
+scripts/render_portfolio_screenshots.py
