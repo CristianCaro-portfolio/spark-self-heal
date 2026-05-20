@@ -41,3 +41,8 @@ logs/
 # Outputs intermedios del pipeline
 data/output/
 data/_tmp/
+
+# Datasets sintéticos generados por scripts/generate_dataset.py
+# (son reproducibles: cualquiera puede regenerarlos con seed fijo)
+data/sample/*.json
+data/broken/*.json
