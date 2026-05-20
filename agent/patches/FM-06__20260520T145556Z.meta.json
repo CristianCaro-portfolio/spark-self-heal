@@ -1,0 +1,8 @@
+{
+  "fm_id": "FM-06",
+  "summary": "Quarantine records with null required fields to _rejected/ prefix instead of failing job",
+  "rationale": "The original job raised a RuntimeError when records contained nulls on required columns, causing a hard failure. The patch implements the catalog's recommended remediation (option a): it identifies records with nulls on any required column, writes them to a quarantine prefix at s3://<silver-bucket>/_rejected/transactions/reason=null_required_fields/, and continues processing valid records. This preserves data lineage, allows the job to succeed with partial data, and enables human review of rejected records. The quarantine logic constructs a filter condition that checks all REQUIRED_NON_NULL_COLUMNS and splits the dataframe before any downstream transformations.",
+  "created_at": "2026-05-20T14:55:56.497813+00:00",
+  "patched_file": "agent/patches/FM-06__20260520T145556Z.py",
+  "line_count": 252
+}

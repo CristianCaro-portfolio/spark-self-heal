@@ -11,6 +11,7 @@ from agent.tools import (
     failure_record,
     glue_logs,
     glue_metadata,
+    patch,
     pipeline_code,
 )
 
@@ -20,6 +21,7 @@ TOOLS = [
     glue_logs,
     catalog,
     pipeline_code,
+    patch,
 ]
 
 DISPATCH = {tool.SCHEMA["name"]: tool.execute for tool in TOOLS}

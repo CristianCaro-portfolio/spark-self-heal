@@ -16,16 +16,20 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from anthropic import Anthropic
+from anthropic import Anthropic, APIStatusError, RateLimitError
 
 from agent.tools import DISPATCH, SCHEMAS
 
 MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5")
 MAX_TOKENS = 4096
 MAX_ITERATIONS = 10
+
+RATE_LIMIT_BACKOFF_S = 30
+RATE_LIMIT_MAX_RETRIES = 3
 
 
 @dataclass
@@ -71,12 +75,11 @@ def run_agent(system_prompt: str, user_prompt: str, verbose: bool = True) -> Age
             print(f"ITERATION {iteration}")
             print(f"{'=' * 60}")
 
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=MAX_TOKENS,
-            system=system_prompt,
-            tools=SCHEMAS,
+        response = _create_with_retry(
+            client=client,
+            system_prompt=system_prompt,
             messages=messages,
+            verbose=verbose,
         )
 
         run.total_input_tokens += response.usage.input_tokens
@@ -143,6 +146,46 @@ def run_agent(system_prompt: str, user_prompt: str, verbose: bool = True) -> Age
         )
 
     return run
+
+
+def _create_with_retry(
+    client: Anthropic,
+    system_prompt: str,
+    messages: list[dict],
+    verbose: bool,
+):
+    """Wrap messages.create with backoff on 429 / RateLimitError."""
+    for attempt in range(1, RATE_LIMIT_MAX_RETRIES + 2):
+        try:
+            return client.messages.create(
+                model=MODEL,
+                max_tokens=MAX_TOKENS,
+                system=system_prompt,
+                tools=SCHEMAS,
+                messages=messages,
+            )
+        except RateLimitError as e:
+            if attempt > RATE_LIMIT_MAX_RETRIES:
+                raise
+            wait_s = RATE_LIMIT_BACKOFF_S
+            if verbose:
+                print(
+                    f"\n[rate_limit] hit on attempt {attempt}/{RATE_LIMIT_MAX_RETRIES}, "
+                    f"backing off {wait_s}s before retry"
+                )
+            time.sleep(wait_s)
+        except APIStatusError as e:
+            if attempt > RATE_LIMIT_MAX_RETRIES or e.status_code not in (429, 529):
+                raise
+            wait_s = RATE_LIMIT_BACKOFF_S
+            if verbose:
+                print(
+                    f"\n[api_status {e.status_code}] backing off {wait_s}s "
+                    f"(attempt {attempt}/{RATE_LIMIT_MAX_RETRIES})"
+                )
+            time.sleep(wait_s)
+
+    raise RuntimeError("rate-limit retry budget exhausted")  # safety net
 
 
 def _summarize_result(result: Any) -> str:
