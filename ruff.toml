@@ -1,0 +1,23 @@
+# Minimal ruff config. Advisory only in CI (continue-on-error: true).
+# Goal: catch syntax issues and obvious bugs without being pedantic
+# about style during portfolio development.
+
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes (unused imports, undefined names)
+    "W",     # pycodestyle warnings
+    "I",     # isort (import ordering)
+    "B",     # flake8-bugbear (likely bugs)
+]
+ignore = [
+    "E501",  # line too long -- handled by formatter
+    "B008",  # do not perform function call in argument defaults -- fine for typer/fastapi
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["E402"]  # tests sometimes import after path manipulation
+"pipelines/jobs/*" = ["E402"]  # Glue scripts have argparse before imports

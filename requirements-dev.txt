@@ -1,0 +1,11 @@
+# Development and CI dependencies.
+#
+# Runtime deps for the agent (boto3, anthropic, requests, python-dotenv)
+# live in scripts/runtime install commands or a future requirements.txt.
+# Keeping this file minimal makes the CI cache key stable and the install
+# step fast.
+#
+# PySpark version pinned to 3.5.x to mirror AWS Glue 4.0 (Spark 3.3.x)
+# semantics as closely as possible. See ADR-004 (pending).
+pyspark==3.5.3
+pytest==8.3.3
