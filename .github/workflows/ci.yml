@@ -1,0 +1,62 @@
+# spark-self-heal :: CI
+#
+# Validates every Pull Request (especially those opened by the agent)
+# by running the pipeline's unit tests on a clean machine. The PR cannot
+# be merged unless this workflow passes (enforce via branch protection).
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: this workflow only needs to read the repo.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pytest + lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+
+      - name: Set up Java 17 (required by PySpark)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint (ruff, advisory only)
+        continue-on-error: true
+        run: |
+          pip install ruff
+          ruff check pipelines/ agent/ tests/ || true
+
+      - name: Syntax check on patched pipeline
+        run: |
+          python -m py_compile pipelines/jobs/transactions_etl.py
+          echo "Pipeline compiles cleanly"
+
+      - name: Run pytest
+        run: |
+          pytest tests/ -v --tb=short
