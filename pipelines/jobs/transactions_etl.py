@@ -76,6 +76,7 @@ TRANSACTION_SCHEMA = StructType([
     StructField("status",         StringType(), nullable=True),
     StructField("country_code",   StringType(), nullable=False),
     StructField("created_at",     StringType(), nullable=False),  # parsed below
+    StructField("fraud_score",    DoubleType(), nullable=True),
 ])
 
 VALID_CURRENCIES = ["USD", "COP", "MXN", "BRL", "ARS", "EUR"]
